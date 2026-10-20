@@ -1,0 +1,386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cybergigafactory.grok.me/reise-log/daten/stops.schema.json",
+  "title": "Reise-Log Stopps (cybergigafactory)",
+  "description": "Abgeschlossene Stopps von Rappys Urlaubsfahrt, aus seinen X-Posts. Owner Daten: Archie. Datenschutz: Start und Ziel immer Karlsruhe; erste und letzte Etappe mit Zusatz; nie Wohnort, Hotel oder Live-Position. Jeder Wert hat in 'quellen' eine Quelle.",
+  "type": "object",
+  "required": [
+    "version",
+    "reise",
+    "stand",
+    "meta",
+    "stops"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "reise": {
+      "type": "string",
+      "description": "Kurzname der Reise, z. B. 2026-10_holland"
+    },
+    "stand": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "Letzte Aktualisierung (ISO mit Offset)"
+    },
+    "beispiel": {
+      "type": "boolean",
+      "description": "true = Datei enthält nur Beispieldaten"
+    },
+    "stops": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/stop"
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "fahrzeug",
+        "akku_kwh_nutzbar"
+      ],
+      "properties": {
+        "fahrzeug": {
+          "type": "string",
+          "description": "Rappy 18.10.: Legacy Model Y SR"
+        },
+        "akku_kwh_nutzbar": {
+          "type": "number",
+          "description": "60 kWh, Basis für SoC-Rechnungen"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tagessummen": {
+      "type": "array",
+      "description": "Optional (20.10.): Tagessumme je Fahrtag aus dem Fahrtzähler",
+      "items": {
+        "type": "object",
+        "required": [
+          "datum",
+          "km",
+          "fahrzeit_min",
+          "kmh"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "datum": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "km": {
+            "$ref": "#/$defs/zahl"
+          },
+          "fahrzeit_min": {
+            "$ref": "#/$defs/zahl"
+          },
+          "kmh": {
+            "$ref": "#/$defs/zahl",
+            "description": "km / (fahrzeit_min/60)"
+          },
+          "kwh": {
+            "$ref": "#/$defs/zahl"
+          },
+          "wh_km": {
+            "$ref": "#/$defs/zahl"
+          },
+          "etappen_summe_km": {
+            "$ref": "#/$defs/zahl",
+            "description": "Summe der bekannten etappen_km des Tages"
+          },
+          "quelle": {
+            "$ref": "#/$defs/quelle"
+          },
+          "offen": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Werte, die bis zu Rappys Nachlieferung offen sind"
+          },
+          "notiz": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schaetzung": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Felder der Tagessumme, die nur geschätzt sind (~)"
+          },
+          "reisezeit_min": {
+            "$ref": "#/$defs/zahl",
+            "description": "Optional (20.10.): Reisezeit Abfahrt bis Ankunft am Tagesziel inkl. Laden/Pausen (für Jarvis' Kopfzeile)"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "quelle": {
+      "enum": [
+        "post",
+        "wetterdaten",
+        "berechnet",
+        "ungeklärt",
+        "screenshot",
+        "rappy"
+      ],
+      "description": "post | wetterdaten | berechnet | ungeklärt; seit 20.10.: screenshot (Rappys Auto-Screenshots, privat) | rappy (von Rappy bestätigt, über Marvin)"
+    },
+    "zahl": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "zeit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?[+-]\\d{2}:\\d{2}$"
+    },
+    "stop": {
+      "type": "object",
+      "required": [
+        "id",
+        "typ",
+        "etappe_nr",
+        "ort",
+        "post_id",
+        "post_url",
+        "post_zeit",
+        "quellen"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "z. B. e01-venlo"
+        },
+        "beispiel": {
+          "type": "boolean",
+          "description": "true = Beispiel-Datensatz, nie live anzeigen"
+        },
+        "typ": {
+          "enum": [
+            "start",
+            "ladestopp",
+            "stopp",
+            "ziel"
+          ]
+        },
+        "etappe_nr": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Nummer der Etappe, die an diesem Stopp endet; Start = 0"
+        },
+        "etappe_zusatz": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Nur erste und letzte Etappe: '(+ ~20 min Datenschutz)'"
+        },
+        "ort": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Start/Ziel immer 'Karlsruhe'. Nie Wohnort/Hotel/Unterkunft."
+        },
+        "supercharger": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Name des Superchargers, falls genannt"
+        },
+        "lat": {
+          "$ref": "#/$defs/zahl",
+          "description": "Nur für öffentliche Stopps (Geocoding des Ortsnamens), nie Live-Position"
+        },
+        "lon": {
+          "$ref": "#/$defs/zahl"
+        },
+        "zeit_ankunft": {
+          "$ref": "#/$defs/zeit"
+        },
+        "zeit_abfahrt": {
+          "$ref": "#/$defs/zeit"
+        },
+        "ladedauer_min": {
+          "$ref": "#/$defs/zahl"
+        },
+        "kw_min": {
+          "$ref": "#/$defs/zahl"
+        },
+        "kw_max": {
+          "$ref": "#/$defs/zahl"
+        },
+        "soc_von": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "soc_bis": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "kwh": {
+          "$ref": "#/$defs/zahl"
+        },
+        "kosten_eur": {
+          "$ref": "#/$defs/zahl"
+        },
+        "eur_kwh": {
+          "$ref": "#/$defs/zahl"
+        },
+        "etappen_km": {
+          "$ref": "#/$defs/zahl"
+        },
+        "wh_km": {
+          "$ref": "#/$defs/zahl",
+          "description": "Rappys Angabe im Post hat Vorrang (Wh/km oder kWh/100 km ×10, Quelle post). Nur ohne Angabe berechnet (Schätzung)."
+        },
+        "nachgeladen_km": {
+          "$ref": "#/$defs/zahl",
+          "description": "kWh*1000/Wh/km, sonst SoC-Delta*Akku-kWh*1000/Wh/km"
+        },
+        "km_pro_min": {
+          "$ref": "#/$defs/zahl"
+        },
+        "temperatur_c": {
+          "$ref": "#/$defs/zahl"
+        },
+        "bilder_urls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "post_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "post_id": {
+          "type": "string",
+          "pattern": "^\\d+$"
+        },
+        "post_zeit": {
+          "$ref": "#/$defs/zeit"
+        },
+        "weitere_posts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\d+$"
+          },
+          "description": "Weitere Post-IDs zum selben Stopp"
+        },
+        "quellen": {
+          "type": "object",
+          "description": "Quelle je Wert (Schlüssel = Feldname)",
+          "propertyNames": {
+            "enum": [
+              "ort",
+              "supercharger",
+              "lat",
+              "lon",
+              "zeit_ankunft",
+              "zeit_abfahrt",
+              "ladedauer_min",
+              "kw_min",
+              "kw_max",
+              "soc_von",
+              "soc_bis",
+              "kwh",
+              "kosten_eur",
+              "eur_kwh",
+              "etappen_km",
+              "wh_km",
+              "nachgeladen_km",
+              "km_pro_min",
+              "temperatur_c",
+              "bilder_urls",
+              "etappe_nr",
+              "etappe_fahrzeit_min",
+              "etappe_kmh",
+              "lader_typ",
+              "km_stand_ankunft"
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/quelle"
+          }
+        },
+        "notiz": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schaetzung": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Felder mit Quelle 'berechnet', die nur geschätzt sind (z. B. wh_km aus SoC-Delta × 60 kWh / km). In der Karte als ~ markieren."
+        },
+        "etappe_fahrzeit_min": {
+          "$ref": "#/$defs/zahl",
+          "description": "Optional (20.10.): reine Fahrzeit der Etappe, die an diesem Stopp endet"
+        },
+        "etappe_kmh": {
+          "$ref": "#/$defs/zahl",
+          "description": "Optional (20.10.): Durchschnittstempo der Etappe = etappen_km / (etappe_fahrzeit_min/60)"
+        },
+        "lader_typ": {
+          "enum": [
+            "supercharger",
+            "destination",
+            null
+          ],
+          "description": "Optional (20.10.): Marker. supercharger = roter SC-Marker; destination = Destination-Charger-Logo (AC), KEIN Supercharger-Blitz. Fehlt das Feld, gilt der alte Standard (typ ladestopp = Supercharger)."
+        },
+        "unbestaetigt": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional (20.10.): Felder, deren Wert vermutet, aber von Rappy noch nicht bestätigt ist (Karte: mit ? markieren)"
+        },
+        "offen": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional (20.10.): Felder, die bewusst offen bleiben, bis Rappy nachliefert (z. B. Kilometerstand)"
+        },
+        "km_stand_ankunft": {
+          "$ref": "#/$defs/zahl",
+          "description": "Optional (20.10.): Kilometerstand (Odometer) bei Ankunft; privat, nur zur Etappenrechnung"
+        }
+      }
+    }
+  }
+}

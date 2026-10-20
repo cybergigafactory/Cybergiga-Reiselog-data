@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Reise-Log</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<style>
+  :root {
+    --blau: #3E6AE1;          /* Streckenfarbe */
+    --blau-glow: rgba(62,106,225,.45);
+    --rot: #E82127;           /* Supercharger-Glyphe */
+    --text: #e8e8e8;
+    --text2: #9a9a9a;
+    --panel: rgba(16,16,18,.94);
+    --linie: #26262a;
+  }
+  html, body { margin:0; height:100%; background:#000; color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  #karte { position:absolute; inset:0; background:#000; z-index:0; }
+  .leaflet-container { background:#000; outline:none; }
+  /* leichter Vignetten-Effekt wie im Fahrzeugdisplay */
+  #vignette { position:absolute; inset:0; pointer-events:none; z-index:400;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.75) 100%); }
+
+  #hud { position:absolute; top:16px; left:16px; z-index:500; max-width:min(640px, calc(100% - 32px)); }
+  #hud .auswahl { margin-top:10px; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2); }
+  #tag-wahl { background:#0b0b0d; color:var(--text); border:1px solid #333; border-radius:6px; padding:4px 8px; font-size:13px; font-family:inherit; }
+  #hud .tageszeile { font-size:12px; color:var(--text2); margin-top:6px; }
+  #hud h1 { margin:0 0 4px; font-size:18px; font-weight:600; letter-spacing:.3px; }
+  #hud .zeile { font-size:13px; color:var(--text2); }
+  #hud .werte { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:10px; }
+  #hud .wert small { font-size:12px; font-weight:400; color:var(--text2); }
+  #hud .wert b { display:block; font-size:20px; font-weight:600; color:var(--text); }
+  #hud .wert span { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.6px; }
+  .badge-beispiel { display:inline-block; margin-top:8px; padding:3px 9px; border-radius:4px;
+    background:#f5c518; color:#000; font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; }
+  #hinweis-beispiel { position:absolute; bottom:28px; left:50%; transform:translateX(-50%); z-index:500;
+    font-size:12px; color:#000; background:#f5c518; padding:5px 12px; border-radius:4px; font-weight:600;
+    white-space:nowrap; }
+
+  /* Marker */
+  .stopp { cursor:pointer; }
+  .stopp svg { display:block; filter: drop-shadow(0 0 4px rgba(0,0,0,.9)); transition: transform .15s; }
+  .stopp:hover svg, .stopp.aktiv svg { transform: scale(1.18); }
+  .stopp.aktiv svg circle.ring { stroke:#fff; }
+  .stopp.aktiv svg circle.ring.kreis { stroke-width:3; }
+  .stopp.aktiv svg circle.ring.dest { stroke:#3E6AE1; stroke-width:3; }
+  .tag.unbest { background:#3a2f00; color:#f5c518; }
+  .offen-wert { color:#666; }
+  #hud .wert b .offen-wert { font-size:inherit; text-transform:none; letter-spacing:0; color:#777; }
+
+  /* Panel */
+  #panel { position:absolute; top:0; right:0; bottom:0; width:380px; max-width:100%; z-index:600;
+    background:var(--panel); border-left:1px solid var(--linie); backdrop-filter: blur(8px);
+    transform:translateX(105%); transition:transform .25s ease; overflow-y:auto; box-sizing:border-box; padding:20px 20px 40px; }
+  #panel.offen { transform:none; }
+  #panel .kopf { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  #panel h2 { margin:0; font-size:18px; font-weight:600; }
+  #panel .typ { font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--text2); margin-bottom:4px; }
+  #panel .zeit { font-size:13px; color:var(--text2); margin-top:4px; }
+  #schliessen { background:none; border:1px solid #333; color:var(--text); border-radius:50%; width:32px; height:32px;
+    font-size:18px; line-height:28px; cursor:pointer; flex:none; }
+  #panel h3 { font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--text2); margin:22px 0 8px; font-weight:600; }
+  .raster { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .kachel { background:#0b0b0d; border:1px solid var(--linie); border-radius:8px; padding:10px 12px; }
+  .kachel b { display:block; font-size:18px; font-weight:600; }
+  .kachel span { font-size:11px; color:var(--text2); }
+  .kachel.pflicht b { color:#fff; }
+  .tag { display:inline-block; margin-left:6px; font-size:9px; padding:1px 5px; border-radius:3px; background:#222; color:#bbb; vertical-align:middle; }
+  .liste { font-size:13px; }
+  .liste div { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--linie); }
+  .liste div span:first-child { color:var(--text2); }
+  .bilder { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .bilder img { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:6px; cursor:zoom-in; background:#111; }
+  .bild-tag { font-size:10px; color:#000; background:#f5c518; padding:1px 6px; border-radius:3px; font-weight:700; }
+  .bild-fehlt { aspect-ratio:4/3; border-radius:6px; background:#111; border:1px dashed #333; color:#777; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  .notiz { font-size:13px; color:var(--text2); margin-top:14px; }
+
+  #lightbox { position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; }
+  #lightbox.offen { display:flex; }
+  #lightbox img { max-width:92vw; max-height:88vh; border-radius:6px; }
+
+  .leaflet-control-zoom a { background:#111 !important; color:#ddd !important; border-color:#222 !important; }
+  .leaflet-control-attribution { background:rgba(0,0,0,.6) !important; color:#666 !important; font-size:10px; }
+  .leaflet-control-attribution a { color:#888 !important; }
+
+  @media (max-width: 700px) {
+    #panel { top:auto; left:0; width:100%; height:62%; border-left:none; border-top:1px solid var(--linie);
+      border-radius:14px 14px 0 0; transform:translateY(105%); }
+    #panel.offen { transform:none; }
+    #hud .werte { gap:12px; }
+    .leaflet-control-zoom { display:none; }
+    #hinweis-beispiel { bottom:auto; top:auto; white-space:normal; width:80%; text-align:center; bottom:20px; }
+  }
+</style>
+</head>
+<body>
+<div id="karte" aria-label="Karte der Reise"></div>
+<div id="vignette"></div>
+
+<div id="hud">
+  <h1 id="titel">Reise-Log</h1>
+  <div class="zeile" id="untertitel"></div>
+  <div class="auswahl"><label for="tag-wahl">Tag</label><select id="tag-wahl"><option value="">Alle Tage</option></select></div>
+  <div class="werte">
+    <div class="wert"><b id="w-km">…</b><span>km</span></div>
+    <div class="wert"><b id="w-sc">…</b><span>Supercharger</span></div>
+    <div class="wert"><b id="w-dest">…</b><span>Destination</span></div>
+    <div class="wert"><b id="w-laden">…</b><span id="w-laden-l">Ladezeit</span></div>
+    <div class="wert"><b id="w-reise">…</b><span>Gesamtreisezeit</span></div>
+    <div class="wert"><b id="w-fahrt">…</b><span>reine Fahrzeit</span></div>
+  </div>
+  <div class="tageszeile" id="tageszeile"></div>
+  <div id="badge"></div>
+</div>
+<div id="hinweis-beispiel" hidden>Beispieldaten: alle Werte und Bilder sind erfunden</div>
+
+<aside id="panel" aria-hidden="true">
+  <div class="kopf">
+    <div>
+      <div class="typ" id="p-typ"></div>
+      <h2 id="p-name"></h2>
+      <div class="zeit" id="p-zeit"></div>
+    </div>
+    <button id="schliessen" aria-label="Schließen">×</button>
+  </div>
+  <div id="p-inhalt"></div>
+</aside>
+<div id="lightbox"><img alt=""></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script>
+/* ===== Einstellungen ===== */
+// Supercharger-Marker: "t-glyphe" (eigene rote T-Glyphe), "blitz" (roter Blitz), "sc" (Text SC), Standard seit 18.10. nach Rappys Wahl: "kreis".
+// "kreis" (roter Kreis, weisser Rand, weisser Blitz, nach Rappys Referenzfoto).
+// Destination-Lader (lader_typ "destination", AC) bekommen seit 20.10. immer den weissen Kreis: weiss, dunkler Rand, dunkler Blitz.
+// Kein offizielles Tesla-Logo, siehe README Abschnitt Markenrecht. Zum Testen per URL: ?marker=blitz
+const SC_MARKER = "kreis";
+const FARBE_BLAU = "#3E6AE1";   // Streckenfarbe
+const FARBE_ROT  = "#E82127";   // Rot der Supercharger-Glyphe
+const FARBE_DUNKEL = "#141414"; // Rand und Blitz des Destination-Markers
+const UMRISS_ZEIGEN = true;     // sehr dezente Laenderumrisse
+const DATEN_UMRISS = "https://raw.githubusercontent.com/cybergigafactory/Cybergiga-Reiselog-data/main/daten/umriss.geojson";
+const DATENSCHUTZ_ZUSATZ = "(+ ~20 min Datenschutz)";
+const KARLSRUHE = { lat: 49.0069, lon: 8.4037, name: "Karlsruhe" };
+// Datenschutz fuer die Live-Seite: true = der neueste Stopp ohne zeit_abfahrt (Rappy steht dort noch) wird nicht gezeigt.
+// Im lokalen Entwurf false, damit die Vorschau alle Stopps zeigt.
+const NUR_NACH_WEITERFAHRT = true;
+// Datenquellen. Schema: Archies ../daten/stops.schema.json (version 1).
+// Standard = echte Daten. ?daten=example = Archies Beispiel, ?daten=entwurf = Jarvis Beispiel mit zwei Ladestopps.
+const QUELLEN = {
+  live:    { stops: "https://raw.githubusercontent.com/cybergigafactory/Cybergiga-Reiselog-data/main/daten/stops.json", route: "https://raw.githubusercontent.com/cybergigafactory/Cybergiga-Reiselog-data/main/daten/route.geojson" },
+  example: { stops: "../daten/stops.example.json", route: "daten/route.example.geojson" },
+  entwurf: { stops: "daten/stops.entwurf.json",    route: "daten/route.entwurf.geojson" }
+};
+
+const params = new URLSearchParams(location.search);
+const markerTyp = params.get("marker") || SC_MARKER;
+const quelle = QUELLEN[params.get("daten")] || QUELLEN.live;
+
+/* ===== Marker-Glyphen (eigene Zeichnungen) ===== */
+const GLYPHEN = {
+  "t-glyphe": `<path d="M9.5 10.2h13v3.1h-4.9v9.5h-3.2v-9.5H9.5z" fill="${FARBE_ROT}"/>`,
+  "blitz":    `<path d="M17.6 7.5 10.8 17.4h4.6l-1.6 7.1 7.4-10.3h-4.8z" fill="${FARBE_ROT}"/>`,
+  "sc":       `<text x="16" y="20.3" text-anchor="middle" font-size="10.5" font-weight="700" font-family="Arial, sans-serif" fill="${FARBE_ROT}">SC</text>`
+};
+const BLITZ_PFAD = "M18.4 7.2 10.6 17.6h5l-2.2 7.2 8.2-10.9h-5.1z";
+// "kreis": nach Rappys Referenzfoto (Navi-Ladesymbol) frei nachgebaut: roter Kreis, duenner weisser Rand, weisser Blitz, ohne Zahl.
+const SVG_KREIS = `<svg width="32" height="32" viewBox="0 0 32 32"><circle class="ring kreis" cx="16" cy="16" r="14" fill="${FARBE_ROT}" stroke="#ffffff" stroke-width="2"/><path d="${BLITZ_PFAD}" fill="#ffffff"/></svg>`;
+// Destination-Lader: gleiche Form wie "kreis", aber weiss mit dunklem Rand und dunklem Blitz.
+const SVG_DEST = `<svg width="32" height="32" viewBox="0 0 32 32"><circle class="ring kreis dest" cx="16" cy="16" r="14" fill="#ffffff" stroke="${FARBE_DUNKEL}" stroke-width="2"/><path d="${BLITZ_PFAD}" fill="${FARBE_DUNKEL}"/></svg>`;
+function svgSupercharger() {
+  if (markerTyp === "kreis") return SVG_KREIS;
+  const g = GLYPHEN[markerTyp] || GLYPHEN["t-glyphe"];
+  return `<svg width="32" height="32" viewBox="0 0 32 32"><circle class="ring" cx="16" cy="16" r="14" fill="#000" stroke="#3a3a3a" stroke-width="1.5"/>${g}</svg>`;
+}
+function svgPunkt(typ) {
+  if (typ === "ziel")  return `<svg width="22" height="22" viewBox="0 0 22 22"><circle class="ring" cx="11" cy="11" r="8" fill="#000" stroke="#e8e8e8" stroke-width="3"/><circle cx="11" cy="11" r="3" fill="#e8e8e8"/></svg>`;
+  if (typ === "start") return `<svg width="18" height="18" viewBox="0 0 18 18"><circle class="ring" cx="9" cy="9" r="7" fill="#e8e8e8" stroke="#000" stroke-width="2"/></svg>`;
+  return `<svg width="16" height="16" viewBox="0 0 16 16"><circle class="ring" cx="8" cy="8" r="6" fill="#d0d0d0" stroke="#000" stroke-width="2"/></svg>`;
+}
+// Ladertyp: lader_typ "destination" = AC-Destination-Lader; "supercharger" oder fehlend bei typ ladestopp = Supercharger (alter Standard).
+const istDest = s => s.lader_typ === "destination";
+const istSC = s => !istDest(s) && (s.lader_typ === "supercharger" || (s.typ === "ladestopp" && s.lader_typ == null));
+const istLader = s => istDest(s) || istSC(s);
+const markerGr = s => istLader(s) ? 32 : ({ ziel:22, start:18, stopp:16 }[s.typ] || 16);
+const markerSvg = s => istDest(s) ? SVG_DEST : istSC(s) ? svgSupercharger() : svgPunkt(s.typ);
+const TYP_NAME = { start:"Start", ladestopp:"Ladestopp", stopp:"Stopp", ziel:"Ziel" };
+const typName = s => istDest(s) ? "Destination-Lader (AC)" : istSC(s) ? "Supercharger" : (TYP_NAME[s.typ] || s.typ);
+const QUELL_TAG = { wetterdaten:"Wetterdaten", berechnet:"berechnet", "ungeklärt":"ungeklärt" };
+
+/* ===== Formatierung ===== */
+const TZ = "Europe/Berlin";
+const zahl1 = v => v == null ? null : Number(v).toLocaleString("de-DE", {maximumFractionDigits:1});
+const zahl = (v, n=0) => v == null ? null : Number(v).toLocaleString("de-DE", {minimumFractionDigits:n, maximumFractionDigits:n});
+const zeitFmt = iso => iso ? new Date(iso).toLocaleString("de-DE", {weekday:"short", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit", timeZone:TZ}) + " Uhr" : null;
+const uhrFmt = iso => iso ? new Date(iso).toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit", timeZone:TZ}) : null;
+const tagFmt = d => new Date(d + "T12:00:00Z").toLocaleDateString("de-DE", {weekday:"short", day:"2-digit", month:"2-digit", timeZone:"UTC"});
+const tagVonIso = iso => iso ? new Date(iso).toLocaleDateString("sv-SE", {timeZone:TZ}) : null; // YYYY-MM-DD in Berliner Zeit
+const dauerFmt = min => { if (min == null) return null; min = Math.round(min); const h = Math.floor(min/60), m = min%60; return h ? `${h} Std ${m} Min` : `${m} Min`; };
+const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const OFFEN = `<span class="offen-wert">offen</span>`;
+
+/* ===== Daten aufbereiten =====
+   Start und Ziel immer Karlsruhe. Fehlt ein Start, wird Karlsruhe ergaenzt.
+   Erste und letzte Etappe tragen DATENSCHUTZ_ZUSATZ (aus etappe_zusatz, sonst ergaenzt).
+   Fehlende Werte nach Spec/Schema: kwh = SoC-Delta x akku_kwh_nutzbar, nachgeladen_km = kwh*1000/wh_km,
+   km_pro_min = nachgeladen_km / ladedauer_min, eur_kwh = kosten_eur / kwh. Solche Werte gelten als "berechnet".
+   Felder in offen[] werden nie nachgerechnet, sie bleiben "offen". */
+function aufbereiten(d) {
+  const akku = d.meta?.akku_kwh_nutzbar;
+  let stops = (d.stops || []).map(s => ({ ...s, quellen: { ...(s.quellen||{}) }, schaetzung: [...(s.schaetzung||[])], offen: [...(s.offen||[])], unbestaetigt: [...(s.unbestaetigt||[])] }));
+  if (NUR_NACH_WEITERFAHRT) {
+    const letzter = stops[stops.length - 1];
+    if (letzter && letzter.typ !== "ziel" && !letzter.zeit_abfahrt) stops.pop();
+  }
+  stops.forEach(s => { if (s.typ === "start" || s.typ === "ziel") { s.ort = KARLSRUHE.name; s.lat = KARLSRUHE.lat; s.lon = KARLSRUHE.lon; } });
+  if (!stops.some(s => s.typ === "start")) stops.unshift({ id:"start-karlsruhe", typ:"start", etappe_nr:0, ort:KARLSRUHE.name, lat:KARLSRUHE.lat, lon:KARLSRUHE.lon, quellen:{}, schaetzung:[], offen:[], unbestaetigt:[], virtuell:true });
+  stops.forEach((s, i) => {
+    const q = s.quellen, frei = f => !s.offen.includes(f), setze = (feld, wert) => { s[feld] = wert; q[feld] = "berechnet"; };
+    if (s.kwh == null && frei("kwh") && s.soc_von != null && s.soc_bis != null && akku) setze("kwh", (s.soc_bis - s.soc_von) / 100 * akku);
+    if (s.nachgeladen_km == null && frei("nachgeladen_km") && s.kwh != null && s.wh_km) setze("nachgeladen_km", s.kwh * 1000 / s.wh_km);
+    if (s.km_pro_min == null && frei("km_pro_min") && s.nachgeladen_km != null && s.ladedauer_min) setze("km_pro_min", s.nachgeladen_km / s.ladedauer_min);
+    if (s.eur_kwh == null && frei("eur_kwh") && s.kosten_eur != null && s.kwh) setze("eur_kwh", s.kosten_eur / s.kwh);
+    // Etappe: Archies etappe_fahrzeit_min / etappe_kmh haben Vorrang, sonst aus Uhrzeiten gerechnet
+    const vor = stops[i-1];
+    if (s.etappe_fahrzeit_min != null) s._fahrzeit_min = s.etappe_fahrzeit_min;
+    else if (vor?.zeit_abfahrt && s.zeit_ankunft) { s._fahrzeit_min = (new Date(s.zeit_ankunft) - new Date(vor.zeit_abfahrt)) / 60000; s._fahrzeit_ger = true; }
+    if (s.etappe_kmh != null) s._kmh = s.etappe_kmh;
+    else if (s._fahrzeit_min && s.etappen_km) { s._kmh = s.etappen_km / (s._fahrzeit_min / 60); s._kmh_ger = true; }
+    s._tag = tagVonIso(s.zeit_ankunft || s.post_zeit || s.zeit_abfahrt);
+  });
+  // virtueller Start und Stopps ohne Zeit: Tag des naechsten Stopps mit Datum
+  for (let i = stops.length - 1; i >= 0; i--) if (!stops[i]._tag) stops[i]._tag = stops[i+1]?._tag || null;
+  const mitEtappe = stops.filter(s => s.typ !== "start");
+  const erste = mitEtappe[0], letzte = mitEtappe.find(s => s.typ === "ziel");
+  [erste, letzte].forEach(s => { if (s && !s.etappe_zusatz) s.etappe_zusatz = DATENSCHUTZ_ZUSATZ; });
+  const tagessummen = Array.isArray(d.tagessummen) ? d.tagessummen : [];
+  const tage = [...new Set([...tagessummen.map(t => t.datum), ...stops.filter(s => !s.virtuell).map(s => s._tag)].filter(Boolean))].sort();
+  return { ...d, stops, tagessummen, tage, beispiel: !!d.beispiel || stops.some(s => s.beispiel) };
+}
+
+/* ===== Karte ===== */
+const karte = L.map("karte", { zoomControl:false, attributionControl:true, zoomSnap:0.25, minZoom:4, maxZoom:13 }).setView([50.6, 6.6], 6);
+karte.attributionControl.setPrefix(false);
+L.control.zoom({ position:"bottomleft" }).addTo(karte);
+karte.attributionControl.addAttribution('Route: <a href="https://project-osrm.org">OSRM</a>, Daten © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende · Umrisse: Natural Earth');
+let ROUTE_BOUNDS = null;
+const schmal = () => window.innerWidth <= 700;
+function einpassen(panelOffen) {
+  if (!ROUTE_BOUNDS) return;
+  if (panelOffen && !schmal()) karte.fitBounds(ROUTE_BOUNDS, { paddingTopLeft:[80,190], paddingBottomRight:[460,80], maxZoom:9 });
+  else if (panelOffen) karte.fitBounds(ROUTE_BOUNDS, { paddingTopLeft:[40,230], paddingBottomRight:[40, window.innerHeight*0.62+20], maxZoom:9 });
+  else karte.fitBounds(ROUTE_BOUNDS, { paddingTopLeft:[80,190], paddingBottomRight:[80,80], maxZoom:9 });
+}
+
+let DATEN, ROUTE, aktiverMarker = null, AKTIV_TAG = "";
+let marker = {};
+const ebene = L.layerGroup().addTo(karte);
+
+Promise.all([
+  fetch(quelle.stops, { cache:"no-cache" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+  fetch(quelle.route, { cache:"no-cache" }).then(r => r.ok ? r.json() : null).catch(() => null),
+  UMRISS_ZEIGEN ? fetch(DATEN_UMRISS).then(r => r.ok ? r.json() : null).catch(() => null) : null
+]).then(([roh, route, umriss]) => {
+  DATEN = aufbereiten(roh); ROUTE = route;
+  if (umriss) L.geoJSON(umriss, { interactive:false, style:{ color:"#ffffff", weight:0.6, opacity:0.10, fill:true, fillColor:"#ffffff", fillOpacity:0.015 } }).addTo(karte);
+
+  const wahl = document.getElementById("tag-wahl");
+  DATEN.tage.forEach(t => wahl.add(new Option(tagFmt(t), t)));
+  let tag = params.get("tag") || "";
+  const stopId = params.get("stop");
+  const stopTag = stopId ? DATEN.stops.find(s => s.id === stopId)?._tag : null;
+  if (tag && stopTag && stopTag !== tag) tag = stopTag;          // geoeffneter Stopp gehoert zu einem anderen Tag
+  if (!DATEN.tage.includes(tag)) tag = "";
+  wahl.value = tag;
+  wahl.onchange = () => { schliessen(); zeichnen(wahl.value); };
+  zeichnen(tag);
+
+  if (stopId) { const i = DATEN.stops.findIndex(s => s.id === stopId); if (i >= 0 && marker[stopId]) oeffnen(i); }
+}).catch(e => {
+  document.getElementById("untertitel").textContent = "Daten konnten nicht geladen werden.";
+  console.error(e);
+});
+
+const anzeigeName = s => s.supercharger || s.ort || "Ort noch offen";
+
+/* Etappen: jede Etappe endet an einem Stopp und gehoert zu dessen Tag.
+   Linie aus route.geojson (Feature mit properties.nach = Stopp-id), sonst gerade Linie vom vorigen Stopp mit Ort. */
+function etappen(d, route) {
+  const feats = route?.features || [];
+  const liste = []; let vor = null;
+  d.stops.forEach(s => {
+    if (s.lat == null || s.lon == null) return;
+    if (vor) {
+      const f = feats.find(f => f.properties?.nach === s.id);
+      liste.push({ von: vor, nach: s, tag: s._tag, km_route: f?.properties?.distanz_km ?? null,
+                   linie: f ? f.geometry.coordinates.map(([x,y]) => [y,x]) : [[vor.lat, vor.lon], [s.lat, s.lon]] });
+    }
+    vor = s;
+  });
+  return liste;
+}
+
+function zeichnen(tag) {
+  AKTIV_TAG = tag;
+  ebene.clearLayers(); marker = {}; aktiverMarker = null;
+  const d = DATEN;
+  const alle = etappen(d, ROUTE);
+  const sicht = tag ? alle.filter(e => e.tag === tag) : alle;
+  const linien = sicht.map(e => e.linie);
+  // sichtbare Stopps: Stopps des Tages plus der Ausgangspunkt der ersten Etappe des Tages
+  const ids = new Set();
+  if (tag) { sicht.forEach(e => { ids.add(e.von.id); ids.add(e.nach.id); }); d.stops.filter(s => s._tag === tag).forEach(s => ids.add(s.id)); }
+  const zeigen = s => !tag || ids.has(s.id);
+
+  if (linien.length) {
+    L.polyline(linien, { color:FARBE_BLAU, weight:14, opacity:0.18, lineCap:"round", lineJoin:"round", interactive:false }).addTo(ebene);
+    L.polyline(linien, { color:FARBE_BLAU, weight:7,  opacity:0.35, lineCap:"round", lineJoin:"round", interactive:false }).addTo(ebene);
+  }
+  const haupt = L.polyline(linien, { color:"#4f7cff", weight:3.5, opacity:1, lineCap:"round", lineJoin:"round", interactive:false }).addTo(ebene);
+
+  const pkte = [];
+  d.stops.forEach((s, i) => {
+    if (s.lat == null || s.lon == null || !zeigen(s)) return;
+    const gr = markerGr(s);
+    const icon = L.divIcon({ className:"stopp", html: markerSvg(s), iconSize:[gr,gr], iconAnchor:[gr/2,gr/2] });
+    const m = L.marker([s.lat, s.lon], { icon, title: anzeigeName(s), zIndexOffset: istLader(s) ? 500 : 0, keyboard:true }).addTo(ebene);
+    m.on("click", () => oeffnen(i));
+    marker[s.id] = m; pkte.push([s.lat, s.lon]);
+  });
+
+  ROUTE_BOUNDS = linien.flat().length > 1 ? haupt.getBounds() : (pkte.length > 1 ? L.latLngBounds(pkte) : null);
+  if (ROUTE_BOUNDS) einpassen(document.getElementById("panel").classList.contains("offen"));
+  else if (pkte.length === 1) karte.setView(pkte[0], 8); else karte.setView([50.6, 6.6], 6.5);
+  hud(d, tag, alle);
+  const u = new URL(location); if (tag) u.searchParams.set("tag", tag); else u.searchParams.delete("tag"); history.replaceState(null, "", u);
+}
+
+/* Kennzahlen eines Tages. Vorrang hat tagessummen[] (km, fahrzeit_min, reisezeit_min), sonst wird aus den Stopps gerechnet.
+   Werte in tagessummen.offen gelten als offen, Werte in tagessummen.schaetzung bekommen ein "~". */
+function tagWerte(d, tag, alle) {
+  const ts = d.tagessummen.find(t => t.datum === tag) || null;
+  const offen = f => ts?.offen?.includes(f), ca = f => !!ts?.schaetzung?.includes(f);
+  const stopsTag = d.stops.filter(s => !s.virtuell && s._tag === tag);
+  const etTag = alle.filter(e => e.tag === tag);
+  // km
+  let km = null, kmCa = false;
+  if (ts?.km != null) { km = ts.km; kmCa = ca("km"); }
+  else if (stopsTag.some(s => s.etappen_km != null)) { km = stopsTag.reduce((a,s) => a + (s.etappen_km||0), 0); kmCa = stopsTag.some(s => s.schaetzung.includes("etappen_km") || s.etappen_km == null); }
+  else if (etTag.some(e => e.km_route != null)) { km = etTag.reduce((a,e) => a + (e.km_route||0), 0); kmCa = true; }
+  // reine Fahrzeit
+  let fahrt = null, fahrtCa = false;
+  if (ts && ("fahrzeit_min" in ts || offen("fahrzeit_min"))) { fahrt = offen("fahrzeit_min") ? null : ts.fahrzeit_min; fahrtCa = ca("fahrzeit_min"); }
+  else if (stopsTag.length && stopsTag.every(s => s.etappe_fahrzeit_min != null)) { fahrt = stopsTag.reduce((a,s) => a + s.etappe_fahrzeit_min, 0); fahrtCa = stopsTag.some(s => s.schaetzung.includes("etappe_fahrzeit_min")); }
+  // Gesamtreisezeit (Abfahrt bis Ankunft, Laden und Pausen eingerechnet)
+  let reise = null, reiseCa = false;
+  if (ts?.reisezeit_min != null && !offen("reisezeit_min")) { reise = ts.reisezeit_min; reiseCa = ca("reisezeit_min"); }
+  else if (!offen("reisezeit_min") && etTag.length) {
+    const ab = etTag[0].von.zeit_abfahrt, an = etTag[etTag.length-1].nach.zeit_ankunft;
+    if (ab && an) reise = (new Date(an) - new Date(ab)) / 60000;
+  }
+  return { ts, km, kmCa, fahrt, fahrtCa, reise, reiseCa, stopsTag };
+}
+
+function hud(d, tag, alle) {
+  const echt = d.stops.filter(s => !s.virtuell);
+  const tage = tag ? [tag] : d.tage;
+  const w = tage.map(t => tagWerte(d, t, alle));
+  const summe = (feld, caFeld) => w.every(x => x[feld] != null) && w.length ? { v: w.reduce((a,x) => a + x[feld], 0), ca: w.some(x => x[caFeld]) } : { v: null, ca: false };
+  let km = summe("km", "kmCa");
+  if (!w.length) km = { v: (ROUTE?.features || []).reduce((a,f) => a + (f.properties.distanz_km||0), 0), ca: true };
+  const reise = summe("reise", "reiseCa"), fahrt = summe("fahrt", "fahrtCa");
+  const sicht = tag ? echt.filter(s => s._tag === tag) : echt;
+  const lader = sicht.filter(istLader);
+  const ladeMin = lader.reduce((a,s) => a + (s.ladedauer_min||0), 0);
+  const ladeOffen = lader.filter(s => s.ladedauer_min == null).length;
+
+  document.getElementById("titel").textContent = "Reise-Log Holland";
+  const ohneOrt = sicht.filter(s => s.lat == null || s.lon == null).length;
+  document.getElementById("untertitel").textContent = [d.meta?.fahrzeug, d.stand ? "Stand " + zeitFmt(d.stand) : null].filter(Boolean).join(" · ")
+    + (echt.length ? "" : " · Noch keine Stopps.")
+    + (ohneOrt ? ` · ${ohneOrt} Stopp${ohneOrt>1?"s":""} ohne Ort (noch offen)` : "");
+  const wert = (x, f) => x.v == null ? OFFEN : (x.ca ? "~" : "") + f(x.v);
+  document.getElementById("w-km").innerHTML = wert(km, v => zahl(v));
+  document.getElementById("w-sc").textContent = sicht.filter(istSC).length;
+  document.getElementById("w-dest").textContent = sicht.filter(istDest).length;
+  document.getElementById("w-laden").innerHTML = lader.length ? dauerFmt(ladeMin) + (ladeOffen ? ` <small>+ ${ladeOffen} offen</small>` : "") : "0 Min";
+  document.getElementById("w-reise").innerHTML = wert(reise, dauerFmt);
+  document.getElementById("w-fahrt").innerHTML = wert(fahrt, dauerFmt);
+  // Tageszeile: bei einem Tag Abfahrt/Ankunft und Hinweis auf Schaetzungen
+  let z = "";
+  if (tag) {
+    const x = w[0], st = x.stopsTag, an = st.length ? st[st.length-1].zeit_ankunft : null;
+    z = `${tagFmt(tag)}: ${st.length} Stopp${st.length===1?"":"s"}` + (an ? `, Ankunft am Tagesziel ${uhrFmt(an)} Uhr` : "")
+      + ((x.kmCa || x.reiseCa) ? ". ~ = Schätzung" : "");
+  } else if (d.tage.length) {
+    z = `${d.tage.length} Fahrtag${d.tage.length===1?"":"e"}` + ((km.ca || reise.ca) ? ". ~ = Schätzung" : "");
+  }
+  document.getElementById("tageszeile").textContent = z;
+  if (d.beispiel) {
+    document.getElementById("badge").innerHTML = '<span class="badge-beispiel">Beispieldaten</span>';
+    document.getElementById("hinweis-beispiel").hidden = false;
+  }
+}
+
+/* ===== Panel ===== */
+const istOffen = (s, feld) => s.offen?.includes(feld);
+const istUnbest = (s, feld) => s.unbestaetigt?.includes(feld);
+function wertTag(s, feld) {
+  let h = "";
+  if (istUnbest(s, feld)) h += `<span class="tag unbest">unbestätigt</span>`;
+  const t = QUELL_TAG[s.quellen?.[feld]];
+  if (t && !(t === "ungeklärt" && s[feld] == null)) h += `<span class="tag">${t}</span>`;
+  return h;
+}
+const ca = (s, feld) => s.schaetzung?.includes(feld) ? "~" : "";
+const frage = (s, feld) => istUnbest(s, feld) ? "?" : "";
+function kachel(s, feld, label, wert, einheit, pflicht) {
+  if (wert == null && !pflicht && !istOffen(s, feld)) return "";
+  const w = wert == null ? OFFEN : ca(s, feld) + wert + frage(s, feld) + (einheit ? ` <small style="font-size:12px;font-weight:400">${einheit}</small>` : "");
+  return `<div class="kachel${pflicht?" pflicht":""}"><b>${w}</b><span>${label}${wertTag(s, feld)}</span></div>`;
+}
+// Zeile in der Liste. Ohne Wert erscheint sie nur, wenn das Feld in offen[] steht (dann "offen").
+function zeile(s, feld, label, wert, opt = {}) {
+  if ((wert == null || wert === "") && !(feld && istOffen(s, feld)) && !opt.immer) return "";
+  const w = (wert == null || wert === "") ? OFFEN : (feld ? ca(s, feld) : (opt.ca ? "~" : "")) + wert + (feld ? frage(s, feld) : "");
+  return `<div><span>${label}${feld ? wertTag(s, feld) : (opt.tag ? `<span class="tag">${opt.tag}</span>` : "")}</span><span>${w}</span></div>`;
+}
+
+function oeffnen(i) {
+  const s = DATEN.stops[i];
+  if (aktiverMarker) aktiverMarker.getElement()?.classList.remove("aktiv");
+  aktiverMarker = marker[s.id]; aktiverMarker?.getElement()?.classList.add("aktiv");
+
+  const beispiel = DATEN.beispiel || s.beispiel;
+  document.getElementById("p-typ").textContent = typName(s) + (s.etappe_nr ? ` · Etappe ${s.etappe_nr}` : "") + (beispiel ? " · Beispiel" : "");
+  const nameUnbest = istUnbest(s, s.supercharger ? "supercharger" : "ort");
+  document.getElementById("p-name").innerHTML = esc(anzeigeName(s)) + (nameUnbest ? ` <span class="tag unbest">unbestätigt</span>` : "");
+  const zeiten = [];
+  if (s.zeit_ankunft) zeiten.push("Ankunft " + zeitFmt(s.zeit_ankunft) + frage(s, "zeit_ankunft"));
+  if (s.zeit_abfahrt) zeiten.push("Abfahrt " + zeitFmt(s.zeit_abfahrt) + frage(s, "zeit_abfahrt"));
+  else if (istOffen(s, "zeit_abfahrt") && s.typ !== "start") zeiten.push("Abfahrt offen");
+  document.getElementById("p-zeit").textContent = zeiten.join(" · ");
+
+  let h = "";
+  if (istUnbest(s, "lat") || istUnbest(s, "lon")) h += `<p class="notiz" style="margin-top:10px">Position vermutet, noch nicht von Rappy bestätigt.</p>`;
+  if (istLader(s)) {
+    const soc = (s.soc_von != null || s.soc_bis != null) ? `${s.soc_von != null ? s.soc_von + " %" : "offen"} → ${s.soc_bis != null ? s.soc_bis + " %" : "offen"}` : null;
+    h += `<h3>Laden${istDest(s) ? " (AC, Destination)" : ""}</h3><div class="raster">`
+      + kachel(s, "ladedauer_min", "Ladedauer", zahl(s.ladedauer_min), "min", true)
+      + kachel(s, "kw_max", "max. Ladeleistung", zahl(s.kw_max), "kW", true)
+      + kachel(s, "nachgeladen_km", "nachgeladene km", zahl(s.nachgeladen_km), "km", true)
+      + kachel(s, "km_pro_min", "km pro Minute", zahl(s.km_pro_min,1), "km/min", true)
+      + kachel(s, "temperatur_c", "Temperatur", (s.temperatur_c == null ? null : zahl(s.temperatur_c, Number.isInteger(s.temperatur_c) ? 0 : 1)), "°C", true)
+      + (soc ? `<div class="kachel"><b>${soc.replace(/offen/g, OFFEN)}</b><span>Ladestand${wertTag(s,"soc_von")}</span></div>` : "")
+      + `</div><div class="liste" style="margin-top:12px">`
+      + zeile(s, "kwh", "geladene Energie", s.kwh!=null ? `${zahl(s.kwh,1)} kWh` : null)
+      + zeile(s, "kw_min", "min. Ladeleistung", s.kw_min!=null ? `${zahl(s.kw_min)} kW` : null)
+      + zeile(s, "kosten_eur", "Kosten", s.kosten_eur!=null ? (s.kosten_eur === 0 ? "kostenlos" : `${zahl(s.kosten_eur,2)} €`) : null)
+      + zeile(s, "eur_kwh", "Preis", (s.eur_kwh!=null && s.kosten_eur !== 0) ? `${zahl(s.eur_kwh,2)} €/kWh` : null)
+      + `</div>`;
+  } else if (s.temperatur_c != null || s.soc_von != null) {
+    h += `<div class="raster" style="margin-top:18px">`
+      + kachel(s, "temperatur_c", "Temperatur", zahl(s.temperatur_c), "°C", false)
+      + kachel(s, "soc_von", "Ladestand Ankunft", s.soc_von, "%", false)
+      + `</div>`;
+  }
+  if (s.typ !== "start") {
+    h += `<h3>Etappe ${s.etappe_nr ?? ""} bis hier</h3><div class="liste">`
+      + zeile(s, "etappen_km", "Länge", s.etappen_km!=null ? `${zahl1(s.etappen_km)} km` : null, { immer:true })
+      + (s.etappe_fahrzeit_min != null ? zeile(s, "etappe_fahrzeit_min", "Fahrzeit", dauerFmt(s.etappe_fahrzeit_min))
+                                        : zeile(s, null, "Fahrzeit", s._fahrzeit_min!=null ? dauerFmt(s._fahrzeit_min) : null, { tag: s._fahrzeit_ger ? "aus Uhrzeit" : null }))
+      + (s.etappe_kmh != null ? zeile(s, "etappe_kmh", "Ø Tempo", `${zahl(s.etappe_kmh)} km/h`)
+                              : zeile(s, null, "Ø Tempo", s._kmh!=null ? `${zahl(s._kmh)} km/h` : null, { tag: s._kmh_ger ? "berechnet" : null }))
+      + zeile(s, "wh_km", "Verbrauch", s.wh_km!=null ? `${zahl(s.wh_km,1)} Wh/km` : null)
+      + (s.etappe_zusatz ? `<div><span>Datenschutz</span><span>${esc(s.etappe_zusatz)}</span></div>` : "")
+      + `</div>`;
+  } else {
+    h += `<p class="notiz">Start der Reise. Aus Datenschutzgründen immer als Karlsruhe gezeigt.</p>`;
+  }
+  const bilder = s.bilder_urls || [];
+  if (bilder.length) {
+    h += `<h3>Bilder ${beispiel ? '<span class="bild-tag">Beispiel</span>' : ""}</h3><div class="bilder">`
+      + bilder.map(u => `<img src="${esc(u)}" alt="Bild zum Stopp" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'bild-fehlt',textContent:'Bild nicht verfügbar'}))">`).join("") + `</div>`;
+  }
+  if (s.schaetzung?.length || s.unbestaetigt?.length) h += `<p class="notiz">~ = Schätzung · ? = vermutet, noch nicht bestätigt</p>`;
+  const posts = [s.post_url, ...(s.weitere_posts||[]).map(id => `https://x.com/cybergigafacto1/status/${id}`)].filter(Boolean);
+  if (posts.length) h += `<p class="notiz">${posts.map((u,k) => `<a href="${esc(u)}" target="_blank" rel="noopener" style="color:#8fb0ff">${k ? "weiterer Post" : "Zum Post auf X"}</a>`).join(" · ")}</p>`;
+  if (s.notiz && beispiel) h += `<p class="notiz">${esc(s.notiz)}</p>`;
+  document.getElementById("p-inhalt").innerHTML = h;
+  document.querySelectorAll("#p-inhalt .bilder img").forEach(img => img.onclick = () => {
+    const lb = document.getElementById("lightbox"); lb.querySelector("img").src = img.src; lb.classList.add("offen");
+  });
+  const p = document.getElementById("panel"); const warOffen = p.classList.contains("offen"); p.classList.add("offen"); p.scrollTop = 0; if (!warOffen) einpassen(true);
+  p.setAttribute("aria-hidden","false");
+  const u = new URL(location); u.searchParams.set("stop", s.id); history.replaceState(null, "", u);
+}
+function schliessen() {
+  const p = document.getElementById("panel"); if (!p.classList.contains("offen")) return; p.classList.remove("offen"); einpassen(false);
+  p.setAttribute("aria-hidden","true");
+  if (aktiverMarker) aktiverMarker.getElement()?.classList.remove("aktiv");
+  const u = new URL(location); u.searchParams.delete("stop"); history.replaceState(null, "", u);
+}
+document.getElementById("schliessen").onclick = schliessen;
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") { document.getElementById("lightbox").classList.remove("offen"); schliessen(); } });
+document.getElementById("lightbox").onclick = () => document.getElementById("lightbox").classList.remove("offen");
+karte.on("click", schliessen);
+</script>
+</body>
+</html>
