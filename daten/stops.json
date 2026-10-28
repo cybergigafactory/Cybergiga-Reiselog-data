@@ -266,7 +266,7 @@
       },
       "etappe_fahrzeit_min": 101,
       "etappe_kmh": 102.8,
-      "lader_typ": "supercharger",
+      "lader_typ": "destination",
       "unbestaetigt": [
         "lat",
         "lon"
