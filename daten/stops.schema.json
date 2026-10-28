@@ -157,9 +157,6 @@
         "typ",
         "etappe_nr",
         "ort",
-        "post_id",
-        "post_url",
-        "post_zeit",
         "quellen"
       ],
       "additionalProperties": false,
@@ -379,6 +376,13 @@
         "km_stand_ankunft": {
           "$ref": "#/$defs/zahl",
           "description": "Optional (20.10.): Kilometerstand (Odometer) bei Ankunft; privat, nur zur Etappenrechnung"
+        },
+        "tagesziel": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Optional (28.10., Jarvis/Rappy): true beim letzten Stopp eines Fahrtags (Übernachtung/Tagesziel). Der öffentliche Export maskiert Tagesziele. Fehlt das Feld, gilt der Fallback der Seite."
         }
       }
     }

@@ -27,7 +27,7 @@
 
   #hud { position:absolute; top:16px; left:16px; z-index:500; max-width:min(640px, calc(100% - 32px)); }
   #hud .auswahl { margin-top:10px; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2); }
-  #tag-wahl { background:#0b0b0d; color:var(--text); border:1px solid #333; border-radius:6px; padding:4px 8px; font-size:13px; font-family:inherit; }
+  #tag-wahl, #strecke-wahl { max-width:260px; background:#0b0b0d; color:var(--text); border:1px solid #333; border-radius:6px; padding:4px 8px; font-size:13px; font-family:inherit; }
   #hud .tageszeile { font-size:12px; color:var(--text2); margin-top:6px; }
   #hud h1 { margin:0 0 4px; font-size:18px; font-weight:600; letter-spacing:.3px; }
   #hud .zeile { font-size:13px; color:var(--text2); }
@@ -104,7 +104,8 @@
 <div id="hud">
   <h1 id="titel">Reise-Log</h1>
   <div class="zeile" id="untertitel"></div>
-  <div class="auswahl"><label for="tag-wahl">Tag</label><select id="tag-wahl"><option value="">Alle Tage</option></select></div>
+  <div class="auswahl"><label for="tag-wahl">Tag</label><select id="tag-wahl"><option value="">Alle Tage</option></select>
+    <label for="strecke-wahl">Strecke</label><select id="strecke-wahl"><option value="">Gesamte Fahrt</option></select></div>
   <div class="werte">
     <div class="wert"><b id="w-km">…</b><span>km</span></div>
     <div class="wert"><b id="w-sc">…</b><span>Supercharger</span></div>
@@ -112,6 +113,8 @@
     <div class="wert"><b id="w-laden">…</b><span id="w-laden-l">Ladezeit</span></div>
     <div class="wert"><b id="w-reise">…</b><span>Gesamtreisezeit</span></div>
     <div class="wert"><b id="w-fahrt">…</b><span>reine Fahrzeit</span></div>
+    <div class="wert"><b id="w-kmh">…</b><span>Ø km/h</span></div>
+    <div class="wert" id="w-aufenthalt-box" hidden><b id="w-aufenthalt">…</b><span>Aufenthalt</span></div>
   </div>
   <div class="tageszeile" id="tageszeile"></div>
   <div id="badge"></div>
@@ -184,7 +187,8 @@ function svgPunkt(typ) {
 }
 // Ladertyp: lader_typ "destination" = AC-Destination-Lader; "supercharger" oder fehlend bei typ ladestopp = Supercharger (alter Standard).
 const istDest = s => s.lader_typ === "destination";
-const istSC = s => !istDest(s) && (s.lader_typ === "supercharger" || (s.typ === "ladestopp" && s.lader_typ == null));
+// Fallback ohne lader_typ: Feld supercharger gesetzt oder typ ladestopp (alter Standard).
+const istSC = s => !istDest(s) && (s.lader_typ === "supercharger" || (s.lader_typ == null && (!!s.supercharger || s.typ === "ladestopp")));
 const istLader = s => istDest(s) || istSC(s);
 const markerGr = s => istLader(s) ? 32 : ({ ziel:22, start:18, stopp:16 }[s.typ] || 16);
 const markerSvg = s => istDest(s) ? SVG_DEST : istSC(s) ? svgSupercharger() : svgPunkt(s.typ);
@@ -257,7 +261,7 @@ function einpassen(panelOffen) {
   else karte.fitBounds(ROUTE_BOUNDS, { paddingTopLeft:[80,190], paddingBottomRight:[80,80], maxZoom:9 });
 }
 
-let DATEN, ROUTE, aktiverMarker = null, AKTIV_TAG = "";
+let DATEN, ROUTE, STRECKEN = [], aktiverMarker = null, AKTIV_TAG = "";
 let marker = {};
 const ebene = L.layerGroup().addTo(karte);
 
@@ -277,8 +281,13 @@ Promise.all([
   if (tag && stopTag && stopTag !== tag) tag = stopTag;          // geoeffneter Stopp gehoert zu einem anderen Tag
   if (!DATEN.tage.includes(tag)) tag = "";
   wahl.value = tag;
-  wahl.onchange = () => { schliessen(); zeichnen(wahl.value); };
-  zeichnen(tag);
+  wahl.onchange = () => { schliessen(); zeichnen(wahl.value, ""); };
+  STRECKEN = strecken(DATEN);
+  const swahl = document.getElementById("strecke-wahl");
+  STRECKEN.forEach(x => swahl.add(new Option(`${kurzName(x.von)} nach ${kurzName(x.nach)}`, x.id)));
+  swahl.onchange = () => { schliessen(); zeichnen("", swahl.value); };
+  const strecke = STRECKEN.some(x => x.id === params.get("strecke")) ? params.get("strecke") : "";
+  zeichnen(strecke ? "" : tag, strecke);
 
   if (stopId) { const i = DATEN.stops.findIndex(s => s.id === stopId); if (i >= 0 && marker[stopId]) oeffnen(i); }
 }).catch(e => {
@@ -287,35 +296,73 @@ Promise.all([
 });
 
 const anzeigeName = s => s.supercharger || s.ort || "Ort noch offen";
+const kurzName = s => (s.supercharger || s.ort || "Ort offen").replace(/^Supercharger\s+/, "");
 
-/* Etappen: jede Etappe endet an einem Stopp und gehoert zu dessen Tag.
-   Linie aus route.geojson (Feature mit properties.nach = Stopp-id), sonst gerade Linie vom vorigen Stopp mit Ort. */
+/* Etappen: jede Etappe endet an einem Stopp und gehoert zu dessen Tag. Nur direkt benachbarte Stopps werden verbunden.
+   Linie aus route.geojson (properties.von/nach, LineString oder MultiLineString, im oeffentlichen Export ist sie am
+   maskierten Tagesziel gekuerzt), sonst gerade Linie, aber nur wenn beide Stopps einen Ort haben. Fehlt ein Ort: Luecke.
+   Maskierte Stopps (Uebernachtung, ohne lat/lon) bekommen keinen Marker, ihre Etappenwerte zaehlen trotzdem. */
 function etappen(d, route) {
   const feats = route?.features || [];
-  const liste = []; let vor = null;
-  d.stops.forEach(s => {
-    if (s.lat == null || s.lon == null) return;
-    if (vor) {
-      const f = feats.find(f => f.properties?.nach === s.id);
-      liste.push({ von: vor, nach: s, tag: s._tag, km_route: f?.properties?.distanz_km ?? null,
-                   linie: f ? f.geometry.coordinates.map(([x,y]) => [y,x]) : [[vor.lat, vor.lon], [s.lat, s.lon]] });
-    }
-    vor = s;
+  const liste = [];
+  d.stops.forEach((s, i) => {
+    const vor = d.stops[i-1];
+    if (!vor) return;
+    const f = feats.find(f => f.properties?.nach === s.id && (f.properties?.von == null || f.properties.von === vor.id))
+           || (!vor.virtuell ? null : feats.find(f => f.properties?.nach === s.id));
+    const pos = x => x.lat != null && x.lon != null;
+    let linien = [];
+    if (f) { const g = f.geometry; linien = (g.type === "MultiLineString" ? g.coordinates : [g.coordinates]).map(l => l.map(([x,y]) => [y,x])); }
+    else if (pos(vor) && pos(s)) linien = [[[vor.lat, vor.lon], [s.lat, s.lon]]];
+    liste.push({ von: vor, nach: s, tag: s._tag, km_route: f?.properties?.distanz_km ?? null, linien });
   });
   return liste;
 }
 
-function zeichnen(tag) {
+/* Strecken: von Supercharger zu Supercharger (Start und Ziel zaehlen als Ankerpunkte).
+   Liegt dazwischen ein Destination-Lader oder ein anderer Stopp, werden die Etappen zusammengefasst. */
+function strecken(d) {
+  const liste = []; let a = null, dazwischen = [];
+  d.stops.forEach(s => {
+    const anker = s.typ === "start" || s.typ === "ziel" || (istSC(s) && !s.maskiert);
+    if (a) dazwischen.push(s);
+    if (anker) { if (a) liste.push({ id: s.id, von: a, nach: s, stops: dazwischen }); a = s; dazwischen = []; }
+  });
+  return liste;
+}
+
+/* Werte einer Etappenmenge: km nur aus etappen_km, Fahrzeit nur aus etappe_fahrzeit_min (bzw. km/h aus etappe_kmh bei
+   einer einzelnen Etappe). Fehlt einer der Werte, bleibt Ø km/h offen. Aufenthalt zaehlt nie mit (keine Uhrzeit-Differenzen). */
+function streckenWerte(st) {
+  const ss = st.stops;
+  const km = ss.every(s => s.etappen_km != null) ? ss.reduce((a,s) => a + s.etappen_km, 0) : null;
+  const kmCa = ss.some(s => s.schaetzung.includes("etappen_km"));
+  const fahrt = ss.every(s => s.etappe_fahrzeit_min != null) ? ss.reduce((a,s) => a + s.etappe_fahrzeit_min, 0) : null;
+  const fahrtCa = ss.some(s => s.schaetzung.includes("etappe_fahrzeit_min"));
+  let kmh = null, kmhCa = false;
+  if (ss.length === 1 && ss[0].etappe_kmh != null) { kmh = ss[0].etappe_kmh; kmhCa = ss[0].schaetzung.includes("etappe_kmh"); }
+  else if (km != null && fahrt) { kmh = km / (fahrt / 60); kmhCa = kmCa || fahrtCa; }
+  // Gesamtreisezeit nur ohne Uebernachtung/Aufenthalt dazwischen (Abstand bis 12 Std), sonst offen
+  let reise = null;
+  const ab = st.von.zeit_abfahrt, an = st.nach.zeit_ankunft;
+  if (ab && an && (new Date(an) - new Date(ab)) <= 12*60*60000) reise = (new Date(an) - new Date(ab)) / 60000;
+  return { km, kmCa, fahrt, fahrtCa, kmh, kmhCa, reise, reiseCa: false };
+}
+
+// Ansicht: tag gesetzt = ein Tag, strecke gesetzt = eine Strecke (Supercharger zu Supercharger), beides leer = gesamte Fahrt.
+function zeichnen(tag, strId = "") {
+  const d = DATEN;
+  const str = strId ? STRECKEN.find(x => x.id === strId) : null;
+  if (str) tag = "";
   AKTIV_TAG = tag;
   ebene.clearLayers(); marker = {}; aktiverMarker = null;
-  const d = DATEN;
   const alle = etappen(d, ROUTE);
-  const sicht = tag ? alle.filter(e => e.tag === tag) : alle;
-  const linien = sicht.map(e => e.linie);
-  // sichtbare Stopps: Stopps des Tages plus der Ausgangspunkt der ersten Etappe des Tages
+  const sicht = str ? alle.filter(e => str.stops.includes(e.nach)) : tag ? alle.filter(e => e.tag === tag) : alle;
+  const linien = sicht.flatMap(e => e.linien).filter(l => l.length > 1);
+  // sichtbare Stopps: Stopps des Tages bzw. der Strecke plus der Ausgangspunkt der ersten Etappe
   const ids = new Set();
-  if (tag) { sicht.forEach(e => { ids.add(e.von.id); ids.add(e.nach.id); }); d.stops.filter(s => s._tag === tag).forEach(s => ids.add(s.id)); }
-  const zeigen = s => !tag || ids.has(s.id);
+  if (tag || str) { sicht.forEach(e => { ids.add(e.von.id); ids.add(e.nach.id); }); if (tag) d.stops.filter(s => s._tag === tag).forEach(s => ids.add(s.id)); }
+  const zeigen = s => !(tag || str) || ids.has(s.id);
 
   if (linien.length) {
     L.polyline(linien, { color:FARBE_BLAU, weight:14, opacity:0.18, lineCap:"round", lineJoin:"round", interactive:false }).addTo(ebene);
@@ -336,8 +383,12 @@ function zeichnen(tag) {
   ROUTE_BOUNDS = linien.flat().length > 1 ? haupt.getBounds() : (pkte.length > 1 ? L.latLngBounds(pkte) : null);
   if (ROUTE_BOUNDS) einpassen(document.getElementById("panel").classList.contains("offen"));
   else if (pkte.length === 1) karte.setView(pkte[0], 8); else karte.setView([50.6, 6.6], 6.5);
-  hud(d, tag, alle);
-  const u = new URL(location); if (tag) u.searchParams.set("tag", tag); else u.searchParams.delete("tag"); history.replaceState(null, "", u);
+  hud(d, tag, alle, str);
+  document.getElementById("tag-wahl").value = tag; document.getElementById("strecke-wahl").value = str ? str.id : "";
+  const u = new URL(location);
+  if (tag) u.searchParams.set("tag", tag); else u.searchParams.delete("tag");
+  if (str) u.searchParams.set("strecke", str.id); else u.searchParams.delete("strecke");
+  history.replaceState(null, "", u);
 }
 
 /* Kennzahlen eines Tages. Vorrang hat tagessummen[] (km, fahrzeit_min, reisezeit_min), sonst wird aus den Stopps gerechnet.
@@ -348,10 +399,10 @@ function tagWerte(d, tag, alle) {
   const stopsTag = d.stops.filter(s => !s.virtuell && s._tag === tag);
   const etTag = alle.filter(e => e.tag === tag);
   // km
-  let km = null, kmCa = false;
+  let km = null, kmCa = false, kmRoute = false;
   if (ts?.km != null) { km = ts.km; kmCa = ca("km"); }
   else if (stopsTag.some(s => s.etappen_km != null)) { km = stopsTag.reduce((a,s) => a + (s.etappen_km||0), 0); kmCa = stopsTag.some(s => s.schaetzung.includes("etappen_km") || s.etappen_km == null); }
-  else if (etTag.some(e => e.km_route != null)) { km = etTag.reduce((a,e) => a + (e.km_route||0), 0); kmCa = true; }
+  else if (etTag.some(e => e.km_route != null)) { km = etTag.reduce((a,e) => a + (e.km_route||0), 0); kmCa = true; kmRoute = true; }
   // reine Fahrzeit
   let fahrt = null, fahrtCa = false;
   if (ts && ("fahrzeit_min" in ts || offen("fahrzeit_min"))) { fahrt = offen("fahrzeit_min") ? null : ts.fahrzeit_min; fahrtCa = ca("fahrzeit_min"); }
@@ -363,24 +414,35 @@ function tagWerte(d, tag, alle) {
     const ab = etTag[0].von.zeit_abfahrt, an = etTag[etTag.length-1].nach.zeit_ankunft;
     if (ab && an) reise = (new Date(an) - new Date(ab)) / 60000;
   }
-  return { ts, km, kmCa, fahrt, fahrtCa, reise, reiseCa, stopsTag };
+  // Ø km/h nur aus echten Werten: tagessummen.kmh, sonst km und Fahrzeit (beide vorhanden, km nicht aus der Route)
+  let kmh = null, kmhCa = false;
+  if (ts?.kmh != null && !offen("kmh")) { kmh = ts.kmh; kmhCa = ca("kmh"); }
+  else if (km != null && fahrt && !kmRoute) { kmh = km / (fahrt / 60); kmhCa = kmCa || fahrtCa; }
+  return { ts, km, kmCa, kmRoute, fahrt, fahrtCa, reise, reiseCa, kmh, kmhCa, stopsTag };
 }
 
-function hud(d, tag, alle) {
+function hud(d, tag, alle, str) {
   const echt = d.stops.filter(s => !s.virtuell);
-  const tage = tag ? [tag] : d.tage;
+  const tage = str ? [] : tag ? [tag] : d.tage;
   const w = tage.map(t => tagWerte(d, t, alle));
   const summe = (feld, caFeld) => w.every(x => x[feld] != null) && w.length ? { v: w.reduce((a,x) => a + x[feld], 0), ca: w.some(x => x[caFeld]) } : { v: null, ca: false };
   let km = summe("km", "kmCa");
   if (!w.length) km = { v: (ROUTE?.features || []).reduce((a,f) => a + (f.properties.distanz_km||0), 0), ca: true };
-  const reise = summe("reise", "reiseCa"), fahrt = summe("fahrt", "fahrtCa");
-  const sicht = tag ? echt.filter(s => s._tag === tag) : echt;
+  let reise = summe("reise", "reiseCa"), fahrt = summe("fahrt", "fahrtCa");
+  // Ø km/h gesamt: Summe km durch Summe Fahrzeit, nur wenn alle Tage beides echt haben
+  let kmh = tag ? { v: w[0]?.kmh ?? null, ca: !!w[0]?.kmhCa }
+    : (km.v != null && fahrt.v && w.every(x => !x.kmRoute)) ? { v: km.v / (fahrt.v / 60), ca: km.ca || fahrt.ca } : { v: null, ca: false };
+  if (str) {
+    const x = streckenWerte(str);
+    km = { v: x.km, ca: x.kmCa }; fahrt = { v: x.fahrt, ca: x.fahrtCa }; reise = { v: x.reise, ca: false }; kmh = { v: x.kmh, ca: x.kmhCa };
+  }
+  const sicht = str ? str.stops.filter(s => !s.virtuell) : tag ? echt.filter(s => s._tag === tag) : echt;
   const lader = sicht.filter(istLader);
   const ladeMin = lader.reduce((a,s) => a + (s.ladedauer_min||0), 0);
   const ladeOffen = lader.filter(s => s.ladedauer_min == null).length;
 
   document.getElementById("titel").textContent = "Reise-Log Holland";
-  const ohneOrt = sicht.filter(s => s.lat == null || s.lon == null).length;
+  const ohneOrt = sicht.filter(s => !s.maskiert && (s.lat == null || s.lon == null)).length;
   document.getElementById("untertitel").textContent = [d.meta?.fahrzeug, d.stand ? "Stand " + zeitFmt(d.stand) : null].filter(Boolean).join(" · ")
     + (echt.length ? "" : " · Noch keine Stopps.")
     + (ohneOrt ? ` · ${ohneOrt} Stopp${ohneOrt>1?"s":""} ohne Ort (noch offen)` : "");
@@ -391,9 +453,20 @@ function hud(d, tag, alle) {
   document.getElementById("w-laden").innerHTML = lader.length ? dauerFmt(ladeMin) + (ladeOffen ? ` <small>+ ${ladeOffen} offen</small>` : "") : "0 Min";
   document.getElementById("w-reise").innerHTML = wert(reise, dauerFmt);
   document.getElementById("w-fahrt").innerHTML = wert(fahrt, dauerFmt);
+  document.getElementById("w-kmh").innerHTML = wert(kmh, v => zahl(v));
+  /* Aufenthalt (Tage vor Ort, z. B. Urlaub): nur Gesamtansicht, nur die Tageszahl, nie ein Ort.
+     WICHTIG: Aufenthalt zaehlt NIE in Gesamtreisezeit oder reine Fahrzeit (Rappy 28.10.). Diese Werte kommen allein aus tagessummen/Stopps. */
+  const aufenthalt = d.meta?.aufenthalt?.tage;
+  const aBox = document.getElementById("w-aufenthalt-box");
+  aBox.hidden = tag || str || !(aufenthalt > 0);
+  if (!aBox.hidden) document.getElementById("w-aufenthalt").textContent = "~" + String(aufenthalt).replace(".", ",") + " Tage";
   // Tageszeile: bei einem Tag Abfahrt/Ankunft und Hinweis auf Schaetzungen
   let z = "";
-  if (tag) {
+  if (str) {
+    const n = str.stops.length;
+    z = `Strecke ${kurzName(str.von)} nach ${kurzName(str.nach)}: ${n} Etappe${n===1?"":"n"}` + (n > 1 ? " zusammengefasst" : "")
+      + ((km.ca || fahrt.ca || kmh.ca) ? ". ~ = Schätzung" : "");
+  } else if (tag) {
     const x = w[0], st = x.stopsTag, an = st.length ? st[st.length-1].zeit_ankunft : null;
     z = `${tagFmt(tag)}: ${st.length} Stopp${st.length===1?"":"s"}` + (an ? `, Ankunft am Tagesziel ${uhrFmt(an)} Uhr` : "")
       + ((x.kmCa || x.reiseCa) ? ". ~ = Schätzung" : "");
