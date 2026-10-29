@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reise": "2026-10_holland",
-  "stand": "2026-10-27T22:57+01:00",
+  "stand": "2026-10-29T18:30+01:00",
   "meta": {
     "fahrzeug": "Tesla Model Y SR (Legacy)",
     "akku_kwh_nutzbar": 60,
@@ -502,16 +502,14 @@
       "supercharger": "Supercharger Eemnes",
       "lat": 52.24,
       "lon": 5.23,
-      "zeit_ankunft": "2026-10-21T17:37+02:00",
-      "zeit_abfahrt": "2026-10-21T17:57+02:00",
-      "ladedauer_min": 20,
-      "soc_von": 16,
+      "zeit_ankunft": "2026-10-21T18:11+02:00",
+      "zeit_abfahrt": null,
+      "ladedauer_min": null,
+      "soc_von": null,
       "schaetzung": [
         "etappen_km",
-        "ladedauer_min",
-        "soc_von",
-        "zeit_abfahrt",
-        "zeit_ankunft"
+        "etappe_fahrzeit_min",
+        "etappe_kmh"
       ],
       "bilder_urls": [],
       "weitere_posts": [],
@@ -520,12 +518,12 @@
         "supercharger": "rappy",
         "lat": "berechnet",
         "lon": "berechnet",
-        "zeit_ankunft": "berechnet",
-        "zeit_abfahrt": "berechnet",
-        "ladedauer_min": "berechnet",
+        "zeit_ankunft": "rappy",
+        "zeit_abfahrt": "ungeklärt",
+        "ladedauer_min": "ungeklärt",
         "kw_min": "ungeklärt",
         "kw_max": "ungeklärt",
-        "soc_von": "berechnet",
+        "soc_von": "ungeklärt",
         "soc_bis": "ungeklärt",
         "kwh": "ungeklärt",
         "kosten_eur": "ungeklärt",
@@ -536,8 +534,10 @@
         "km_pro_min": "ungeklärt",
         "temperatur_c": "ungeklärt",
         "bilder_urls": "ungeklärt",
-        "etappe_nr": "ungeklärt",
-        "lader_typ": "ungeklärt"
+        "etappe_nr": "berechnet",
+        "lader_typ": "rappy",
+        "etappe_fahrzeit_min": "berechnet",
+        "etappe_kmh": "berechnet"
       },
       "lader_typ": "supercharger",
       "unbestaetigt": [
@@ -547,10 +547,15 @@
       "offen": [
         "soc_bis",
         "kwh",
-        "kosten_eur"
+        "kosten_eur",
+        "zeit_abfahrt",
+        "ladedauer_min",
+        "soc_von"
       ],
       "tagesziel": false,
-      "etappen_km": 218.0
+      "etappen_km": 218.0,
+      "etappe_fahrzeit_min": 151,
+      "etappe_kmh": 86.6
     },
     {
       "id": "e09-amsterdam",
@@ -593,9 +598,129 @@
       "etappen_km": 33.2
     },
     {
-      "id": "e10-zandvoort",
-      "typ": "stopp",
+      "id": "e10-badhoevedorp",
+      "typ": "ladestopp",
       "etappe_nr": 10,
+      "ort": "Badhoevedorp",
+      "supercharger": "Supercharger Badhoevedorp",
+      "lat": 52.33,
+      "lon": 4.78,
+      "zeit_ankunft": "2026-10-23T11:48+02:00",
+      "zeit_abfahrt": null,
+      "ladedauer_min": null,
+      "soc_von": null,
+      "soc_bis": null,
+      "kwh": null,
+      "kosten_eur": null,
+      "etappen_km": 22.1,
+      "etappe_fahrzeit_min": null,
+      "etappe_kmh": null,
+      "schaetzung": [
+        "etappen_km"
+      ],
+      "bilder_urls": [],
+      "weitere_posts": [],
+      "quellen": {
+        "ort": "rappy",
+        "supercharger": "rappy",
+        "lat": "berechnet",
+        "lon": "berechnet",
+        "zeit_ankunft": "rappy",
+        "zeit_abfahrt": "ungeklärt",
+        "ladedauer_min": "ungeklärt",
+        "kw_min": "ungeklärt",
+        "kw_max": "ungeklärt",
+        "soc_von": "ungeklärt",
+        "soc_bis": "ungeklärt",
+        "kwh": "ungeklärt",
+        "kosten_eur": "ungeklärt",
+        "eur_kwh": "ungeklärt",
+        "etappen_km": "berechnet",
+        "wh_km": "ungeklärt",
+        "nachgeladen_km": "ungeklärt",
+        "km_pro_min": "ungeklärt",
+        "temperatur_c": "ungeklärt",
+        "bilder_urls": "ungeklärt",
+        "etappe_nr": "berechnet",
+        "lader_typ": "rappy"
+      },
+      "lader_typ": "supercharger",
+      "unbestaetigt": [],
+      "offen": [
+        "zeit_abfahrt",
+        "ladedauer_min",
+        "soc_von",
+        "soc_bis",
+        "kwh",
+        "etappe_fahrzeit_min",
+        "kosten_eur"
+      ],
+      "tagesziel": false
+    },
+    {
+      "id": "e11-haarlem-2410",
+      "typ": "ladestopp",
+      "etappe_nr": 11,
+      "ort": "Haarlem",
+      "supercharger": "Supercharger Haarlem",
+      "lat": 52.37,
+      "lon": 4.65,
+      "zeit_ankunft": "2026-10-24T11:11+02:00",
+      "zeit_abfahrt": null,
+      "ladedauer_min": null,
+      "soc_von": null,
+      "soc_bis": null,
+      "kwh": null,
+      "kosten_eur": null,
+      "etappen_km": 12.3,
+      "etappe_fahrzeit_min": null,
+      "etappe_kmh": null,
+      "schaetzung": [
+        "etappen_km"
+      ],
+      "bilder_urls": [],
+      "weitere_posts": [],
+      "quellen": {
+        "ort": "rappy",
+        "supercharger": "rappy",
+        "lat": "berechnet",
+        "lon": "berechnet",
+        "zeit_ankunft": "rappy",
+        "zeit_abfahrt": "ungeklärt",
+        "ladedauer_min": "ungeklärt",
+        "kw_min": "ungeklärt",
+        "kw_max": "ungeklärt",
+        "soc_von": "ungeklärt",
+        "soc_bis": "ungeklärt",
+        "kwh": "ungeklärt",
+        "kosten_eur": "ungeklärt",
+        "eur_kwh": "ungeklärt",
+        "etappen_km": "berechnet",
+        "wh_km": "ungeklärt",
+        "nachgeladen_km": "ungeklärt",
+        "km_pro_min": "ungeklärt",
+        "temperatur_c": "ungeklärt",
+        "bilder_urls": "ungeklärt",
+        "etappe_nr": "berechnet",
+        "lader_typ": "rappy"
+      },
+      "lader_typ": "supercharger",
+      "unbestaetigt": [],
+      "offen": [
+        "zeit_abfahrt",
+        "ladedauer_min",
+        "soc_von",
+        "soc_bis",
+        "kwh",
+        "etappe_fahrzeit_min",
+        "kosten_eur"
+      ],
+      "tagesziel": false
+    },
+    {
+      "id": "e12-zandvoort",
+      "typ": "stopp",
+      "etappe_nr": 12,
       "ort": "Zandvoort",
       "lat": 52.38,
       "lon": 4.53,
@@ -631,12 +756,12 @@
         "zeit_ankunft"
       ],
       "tagesziel": true,
-      "etappen_km": 33.0
+      "etappen_km": 10.2
     },
     {
-      "id": "e11-haarlem",
+      "id": "e13-haarlem",
       "typ": "ladestopp",
-      "etappe_nr": 11,
+      "etappe_nr": 13,
       "ort": "Haarlem",
       "supercharger": "Supercharger Haarlem",
       "lat": 52.37,
@@ -650,7 +775,9 @@
       "kwh": 33,
       "schaetzung": [
         "etappen_km",
-        "zeit_abfahrt"
+        "zeit_abfahrt",
+        "etappe_fahrzeit_min",
+        "etappe_kmh"
       ],
       "bilder_urls": [],
       "weitere_posts": [],
@@ -659,7 +786,7 @@
         "supercharger": "rappy",
         "lat": "berechnet",
         "lon": "berechnet",
-        "zeit_ankunft": "screenshot",
+        "zeit_ankunft": "rappy",
         "zeit_abfahrt": "ungeklärt",
         "ladedauer_min": "ungeklärt",
         "kw_min": "ungeklärt",
@@ -676,28 +803,31 @@
         "temperatur_c": "ungeklärt",
         "bilder_urls": "ungeklärt",
         "etappe_nr": "ungeklärt",
-        "lader_typ": "ungeklärt"
+        "lader_typ": "ungeklärt",
+        "etappe_fahrzeit_min": "berechnet",
+        "etappe_kmh": "berechnet"
       },
       "lader_typ": "supercharger",
       "unbestaetigt": [
-        "lat",
-        "lon"
+        "etappe_kmh"
       ],
       "offen": [],
       "tagesziel": false,
-      "etappen_km": 10.9
+      "etappen_km": 10.9,
+      "etappe_fahrzeit_min": 51,
+      "etappe_kmh": 12.8
     },
     {
-      "id": "e12-erfstadt",
+      "id": "e14-erftstadt",
       "typ": "ladestopp",
-      "etappe_nr": 12,
+      "etappe_nr": 14,
       "ort": "Erftstadt",
       "supercharger": "Supercharger Erftstadt",
       "lat": 50.8,
       "lon": 6.78,
-      "zeit_ankunft": "2026-10-26T15:23+01:00",
+      "zeit_ankunft": "2026-10-26T15:22+01:00",
       "zeit_abfahrt": "2026-10-26T15:33+01:00",
-      "ladedauer_min": 10,
+      "ladedauer_min": 11,
       "kw_max": 172,
       "soc_von": 14,
       "soc_bis": 56,
@@ -706,7 +836,9 @@
       "schaetzung": [
         "etappen_km",
         "ladedauer_min",
-        "zeit_abfahrt"
+        "zeit_abfahrt",
+        "etappe_fahrzeit_min",
+        "etappe_kmh"
       ],
       "bilder_urls": [],
       "weitere_posts": [],
@@ -715,7 +847,7 @@
         "supercharger": "rappy",
         "lat": "berechnet",
         "lon": "berechnet",
-        "zeit_ankunft": "screenshot",
+        "zeit_ankunft": "rappy",
         "zeit_abfahrt": "screenshot",
         "ladedauer_min": "berechnet",
         "kw_min": "ungeklärt",
@@ -732,7 +864,9 @@
         "temperatur_c": "ungeklärt",
         "bilder_urls": "ungeklärt",
         "etappe_nr": "ungeklärt",
-        "lader_typ": "ungeklärt"
+        "lader_typ": "ungeklärt",
+        "etappe_fahrzeit_min": "berechnet",
+        "etappe_kmh": "berechnet"
       },
       "lader_typ": "supercharger",
       "unbestaetigt": [
@@ -741,12 +875,14 @@
       ],
       "offen": [],
       "tagesziel": false,
-      "etappen_km": 276.8
+      "etappen_km": 276.8,
+      "etappe_fahrzeit_min": 227,
+      "etappe_kmh": 73.2
     },
     {
-      "id": "e13-pfalzfeld",
+      "id": "e15-pfalzfeld",
       "typ": "stopp",
-      "etappe_nr": 13,
+      "etappe_nr": 15,
       "ort": "Pfalzfeld",
       "supercharger": "Supercharger Pfalzfeld",
       "lat": 50.12,
@@ -763,7 +899,9 @@
         "etappen_km",
         "km_pro_min",
         "kwh",
-        "nachgeladen_km"
+        "nachgeladen_km",
+        "etappe_fahrzeit_min",
+        "etappe_kmh"
       ],
       "bilder_urls": [
         "https://pbs.twimg.com/media/HVkZyGIWYAEqtiT.jpg",
@@ -795,7 +933,9 @@
         "temperatur_c": "ungeklärt",
         "bilder_urls": "post",
         "etappe_nr": "berechnet",
-        "lader_typ": "berechnet"
+        "lader_typ": "berechnet",
+        "etappe_fahrzeit_min": "berechnet",
+        "etappe_kmh": "berechnet"
       },
       "lader_typ": null,
       "unbestaetigt": [
@@ -807,19 +947,23 @@
         "soc_von",
         "soc_bis"
       ],
-      "tagesziel": false
+      "tagesziel": false,
+      "etappe_fahrzeit_min": 75,
+      "etappe_kmh": 92.2
     },
     {
-      "id": "e14-ziel",
+      "id": "e16-ziel",
       "typ": "ziel",
-      "etappe_nr": 14,
+      "etappe_nr": 16,
       "ort": "Karlsruhe",
       "lat": 49.0069,
       "lon": 8.4037,
       "zeit_ankunft": "2026-10-26T19:20+01:00",
       "soc_von": 7,
       "schaetzung": [
-        "etappen_km"
+        "etappen_km",
+        "etappe_fahrzeit_min",
+        "etappe_kmh"
       ],
       "bilder_urls": [],
       "weitere_posts": [],
@@ -845,65 +989,68 @@
         "temperatur_c": "ungeklärt",
         "bilder_urls": "ungeklärt",
         "etappe_nr": "ungeklärt",
-        "lader_typ": "ungeklärt"
+        "lader_typ": "ungeklärt",
+        "etappe_fahrzeit_min": "berechnet",
+        "etappe_kmh": "berechnet"
       },
       "lader_typ": null,
       "unbestaetigt": [],
       "offen": [],
       "tagesziel": false,
-      "etappen_km": 176.5
+      "etappen_km": 176.5,
+      "etappe_fahrzeit_min": 136,
+      "etappe_kmh": 77.9
     }
   ],
   "tagessummen": [
     {
       "datum": "2026-10-20",
       "km": 706,
-      "fahrzeit_min": null,
-      "kmh": null,
+      "fahrzeit_min": 416,
+      "kmh": 105.9,
       "kwh": null,
       "wh_km": null,
       "etappen_summe_km": 734.5,
-      "quelle": "rappy",
-      "offen": [
-        "fahrzeit_min",
-        "kmh"
-      ],
+      "quelle": "berechnet",
+      "offen": [],
       "schaetzung": [
         "km",
-        "reisezeit_min"
+        "reisezeit_min",
+        "fahrzeit_min",
+        "kmh"
       ],
       "reisezeit_min": 465
     },
     {
       "datum": "2026-10-21",
       "km": 698.6,
-      "fahrzeit_min": null,
-      "kmh": null,
+      "fahrzeit_min": 558,
+      "kmh": 75.1,
       "kwh": null,
       "wh_km": null,
-      "etappen_summe_km": 446.4,
+      "etappen_summe_km": 697.6,
       "quelle": "berechnet",
       "offen": [
-        "fahrzeit_min",
-        "kmh",
         "kwh",
         "wh_km"
       ],
       "schaetzung": [
         "km",
         "etappen_summe_km",
-        "reisezeit_min"
+        "reisezeit_min",
+        "fahrzeit_min",
+        "kmh"
       ],
       "reisezeit_min": 655
     },
     {
-      "datum": "2026-10-26",
-      "km": 650,
+      "datum": "2026-10-23",
+      "km": 22.1,
       "fahrzeit_min": null,
       "kmh": null,
       "kwh": null,
       "wh_km": null,
-      "etappen_summe_km": null,
+      "etappen_summe_km": 22.1,
       "quelle": "berechnet",
       "offen": [
         "fahrzeit_min",
@@ -913,7 +1060,49 @@
       ],
       "schaetzung": [
         "km",
-        "reisezeit_min"
+        "etappen_summe_km"
+      ],
+      "reisezeit_min": 0
+    },
+    {
+      "datum": "2026-10-24",
+      "km": 12.3,
+      "fahrzeit_min": null,
+      "kmh": null,
+      "kwh": null,
+      "wh_km": null,
+      "etappen_summe_km": 12.3,
+      "quelle": "berechnet",
+      "offen": [
+        "fahrzeit_min",
+        "kmh",
+        "kwh",
+        "wh_km"
+      ],
+      "schaetzung": [
+        "km",
+        "etappen_summe_km"
+      ],
+      "reisezeit_min": 0
+    },
+    {
+      "datum": "2026-10-26",
+      "km": 650,
+      "fahrzeit_min": 489,
+      "kmh": 79.8,
+      "kwh": null,
+      "wh_km": null,
+      "etappen_summe_km": 579.4,
+      "quelle": "berechnet",
+      "offen": [
+        "kwh",
+        "wh_km"
+      ],
+      "schaetzung": [
+        "km",
+        "reisezeit_min",
+        "fahrzeit_min",
+        "kmh"
       ],
       "reisezeit_min": 543
     }
